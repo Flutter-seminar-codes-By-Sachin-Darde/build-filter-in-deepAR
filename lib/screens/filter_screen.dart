@@ -7,6 +7,8 @@ import 'package:deepar/widgets/icon_action_btn.dart';
 import 'package:deepar_flutter/deepar_flutter.dart';
 import 'package:flutter/material.dart';
 
+import '../services/file_downloader_service.dart';
+
 class FilterScreen extends StatefulWidget {
   const FilterScreen({super.key});
 
@@ -17,12 +19,20 @@ class FilterScreen extends StatefulWidget {
 class _FilterScreenState extends State<FilterScreen> {
   CarouselController carouselController = CarouselController();
   bool isInitialized = false;
+  int isCurrentIndexLoading = -1;
   final List<Lenses> lstOfLenses = [
-    Lenses(previewImageUrl: 'devil.png', deepARAssetFile: 'devil.deepar'),
+    Lenses(
+        previewImageUrl: 'devil.png',
+        deepARAssetFile:
+            'https://firebasestorage.googleapis.com/v0/b/dreamkasper-website.appspot.com/o/Neon_Devil_Horns.deepar?alt=media&token=a4f8ae37-7b43-4dce-9709-bc580d4814a9'),
     Lenses(
         previewImageUrl: 'elephant-trunk.png',
-        deepARAssetFile: 'elephant-trunk.deepar'),
-    Lenses(previewImageUrl: 'fire.png', deepARAssetFile: 'fire.deepar')
+        deepARAssetFile:
+            'https://firebasestorage.googleapis.com/v0/b/dreamkasper-website.appspot.com/o/Elephant_Trunk.deepar?alt=media&token=95490200-9277-409c-807c-c0b4632aff92'),
+    Lenses(
+        previewImageUrl: 'fire.png',
+        deepARAssetFile:
+            'https://firebasestorage.googleapis.com/v0/b/dreamkasper-website.appspot.com/o/burning_effect.deepar?alt=media&token=0df3910c-83c5-4660-a759-e4338645bb21')
   ];
   int currentIndex = 0;
   final DeepArController _controller = DeepArController();
@@ -49,8 +59,16 @@ class _FilterScreenState extends State<FilterScreen> {
     });
   }
 
-  void switchEffect(String assetPath) {
-    _controller.switchEffect('assets/ar_files/$assetPath');
+  Future<void> switchEffect(String fileUrl) async {
+    //  isInitialized = false;
+    // setState(() {});
+    File? deepARFile = await FileDownloaderService.downloadedFile(
+      url: fileUrl,
+      preferredExtension: '.deepar',
+    );
+    //  isInitialized = true;
+    // setState(() {});
+    _controller.switchEffectWithSlot(slot: 'mask', path: deepARFile.path);
   }
 
   @override
@@ -60,12 +78,15 @@ class _FilterScreenState extends State<FilterScreen> {
       body: Stack(children: [
         Container(
           child: _controller.isInitialized && isInitialized
-              ? DeepArPreview(
-                  _controller,
-                  onViewCreated: () {
-                    switchEffect(lstOfLenses[currentIndex].deepARAssetFile);
-                  },
-                )
+              ? isCurrentIndexLoading == currentIndex
+                  ? const Center(child: CircularProgressIndicator())
+                  : DeepArPreview(
+                      _controller,
+                      onViewCreated: () async {
+                        await switchEffect(
+                            lstOfLenses[currentIndex].deepARAssetFile);
+                      },
+                    )
               : const Center(
                   child: CircularProgressIndicator(),
                 ),
@@ -110,14 +131,16 @@ class _FilterScreenState extends State<FilterScreen> {
                     carouselController: carouselController,
                     items: [
                       ...lstOfLenses.map((e) => GestureDetector(
-                            onTap: () {
+                            onTap: () async {
                               if (!isInitialized) {
                                 return;
                               }
+                              isCurrentIndexLoading = currentIndex;
                               currentIndex = lstOfLenses.indexOf(e);
                               carouselController.jumpToPage(currentIndex);
-                              switchEffect(
+                              await switchEffect(
                                   lstOfLenses[currentIndex].deepARAssetFile);
+                              isCurrentIndexLoading = -1;
                               setState(() {});
                             },
                             child: SizedBox(
